@@ -1,0 +1,11 @@
+{
+  "type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
+  "name": "Yinko Guard",
+  "agentName": "yinko",
+  "description": "Pre-signature guard for humans and AI agents on BNB Chain. Call before paying or approving: returns allow, warn or block with plain-language reasons (address poisoning, risky approvals, lookalike .ai names, one-way agent links).",
+  "image": "",
+  "active": true,
+  "services": [
+    { "name": "web", "endpoint": "https://github.com/6figuresdev/yinko" }
+  ]
+}

@@ -1,12 +1,22 @@
 {
   "name": "yinko-guard",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
     "test": "node --import tsx --test test/*.test.ts",
     "start": "node --import tsx src/server.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "mcp": "node --import tsx src/mcp-stdio.ts",
+    "registration-uri": "node agent/make-uri.mjs"
   },
-  "dependencies": { "viem": "^2.21.0" },
-  "devDependencies": { "tsx": "^4.19.0", "typescript": "^5.6.0", "@types/node": "^22.0.0" }
+  "dependencies": {
+    "viem": "^2.21.0",
+    "@modelcontextprotocol/sdk": "^1.17.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "@types/node": "^22.0.0"
+  }
 }
