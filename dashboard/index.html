@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yinko: check before you sign</title>
+<meta name="description" content="Yinko tells people and AI agents who they are about to pay or approve, and whether to trust it.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%9B%A1%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink: #16213a;
+  --ink-soft: #4a566f;
+  --fog: #edf1f4;
+  --paper: #f8fafb;
+  --rule: #c9d2db;
+  --allow: #1b7a63;
+  --warn: #b9770e;
+  --block: #b3261e;
+  --focus: #2b59d9;
+  --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body: "Figtree", "Segoe UI", system-ui, sans-serif;
+  --code: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--fog); color: var(--ink); font: 400 1rem/1.55 var(--body); }
+a { color: inherit; text-underline-offset: 3px; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.wrap { max-width: 64rem; margin: 0 auto; padding: 0 1.25rem; }
+header.top { display: flex; justify-content: space-between; align-items: center; padding: 1.25rem 0; }
+.mark { font: 800 1.5rem/1 var(--display); letter-spacing: -0.02em; text-decoration: none; }
+.top nav a { margin-left: 1.25rem; font-weight: 500; }
+
+h1 { font: 800 clamp(2.6rem, 8vw, 5.2rem)/0.98 var(--display); letter-spacing: -0.035em; margin: 2.5rem 0 1rem; max-width: 12ch; }
+h2 { font: 600 1.6rem/1.15 var(--display); letter-spacing: -0.02em; margin: 0 0 0.5rem; }
+.lede { font-size: 1.2rem; max-width: 34rem; color: var(--ink-soft); margin: 0 0 2rem; }
+section { padding: 2.5rem 0; border-top: 2px solid var(--ink); }
+section.hero { border-top: 0; padding-top: 0; }
+
+/* live demo */
+.demo { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 2rem; align-items: start; }
+.presets { display: grid; gap: 0.5rem; margin: 0; padding: 0; list-style: none; }
+.presets button { width: 100%; text-align: left; font: 600 1rem/1.3 var(--body); color: var(--ink); background: var(--paper); border: 2px solid var(--ink); padding: 0.8rem 1rem; cursor: pointer; border-radius: 4px; }
+.presets button small { display: block; font-weight: 400; color: var(--ink-soft); margin-top: 0.15rem; }
+.presets button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+.presets button[aria-pressed="true"] small { color: #c5cee0; }
+.presets button:hover { background: #fff; }
+.presets button[aria-pressed="true"]:hover { background: var(--ink); }
+.apirow { margin-top: 1rem; display: grid; gap: 0.35rem; font-size: 0.9rem; color: var(--ink-soft); }
+.apirow input[type=text] { font: 400 0.95rem var(--code); padding: 0.5rem 0.6rem; border: 1px solid var(--ink-soft); border-radius: 4px; background: #fff; color: var(--ink); width: 100%; }
+.apirow label.check { display: flex; gap: 0.5rem; align-items: center; }
+
+.result { border-left: 12px solid var(--rule); background: var(--paper); padding: 1.1rem 1.25rem 1.25rem; min-height: 14rem; }
+.result[data-verdict="allow"] { border-color: var(--allow); }
+.result[data-verdict="warn"] { border-color: var(--warn); }
+.result[data-verdict="block"] { border-color: var(--block); }
+.verdict { font: 800 2.6rem/1 var(--display); letter-spacing: -0.03em; margin: 0 0 0.6rem; }
+.result[data-verdict="allow"] .verdict { color: var(--allow); }
+.result[data-verdict="warn"] .verdict { color: var(--warn); }
+.result[data-verdict="block"] .verdict { color: var(--block); }
+.result ul { margin: 0.5rem 0 0; padding-left: 1.1rem; }
+.result li { margin-bottom: 0.35rem; }
+.result .cap { margin-top: 0.8rem; font-weight: 600; }
+.result .empty { color: var(--ink-soft); margin: 0; }
+details { margin-top: 1rem; }
+summary { cursor: pointer; font-weight: 600; }
+pre { margin: 0.5rem 0 0; padding: 0.75rem; background: #fff; border: 1px solid var(--rule); font: 0.8rem/1.45 var(--code); overflow-x: auto; max-width: 100%; }
+
+/* ledger */
+.summary { font-size: 1.1rem; margin: 0 0 1.25rem; color: var(--ink-soft); }
+.ledger { list-style: none; margin: 0; padding: 0; }
+.row { display: grid; grid-template-columns: 8px minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 0.8fr) auto; gap: 0 1rem; align-items: center; padding: 0.7rem 0; border-bottom: 1px solid var(--rule); }
+.row .bar { align-self: stretch; background: var(--rule); border-radius: 2px; }
+.row[data-verdict="allow"] .bar { background: var(--allow); }
+.row[data-verdict="warn"] .bar { background: var(--warn); }
+.row[data-verdict="block"] .bar { background: var(--block); }
+.row .what { font-weight: 600; }
+.row .what span { display: block; font-weight: 400; color: var(--ink-soft); font-size: 0.9rem; }
+.row .addr, .row .tx { font: 0.85rem var(--code); }
+.row .when { color: var(--ink-soft); font-size: 0.9rem; }
+.row.fresh { animation: fresh 2.4s ease-out 1; }
+@keyframes fresh { from { background: #fff3c4; } to { background: transparent; } }
+.status { color: var(--ink-soft); }
+.status.err { color: var(--block); }
+
+/* agent */
+dl.facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 0.5rem 1.5rem; margin: 1rem 0 0; }
+dl.facts dt { font-weight: 600; }
+dl.facts dd { margin: 0; overflow-wrap: anywhere; }
+dl.facts .addr { font-family: var(--code); font-size: 0.9rem; }
+footer { padding: 2rem 0 3rem; border-top: 2px solid var(--ink); color: var(--ink-soft); }
+
+@media (max-width: 52rem) {
+  .demo { grid-template-columns: 1fr; }
+  .row { grid-template-columns: 8px minmax(0, 1fr) auto; row-gap: 0.1rem; }
+  .row .addr { grid-column: 2; }
+  .row .when { grid-column: 2; }
+  .row .tx { grid-column: 3; grid-row: 1; }
+}
+@media (prefers-reduced-motion: reduce) { .row.fresh { animation: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="mark" href="#top">Yinko</a>
+    <nav><a href="#record">On-chain record</a><a href="#agent">The agent</a><a id="repo" href="#">Code</a></nav>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <h1>Check before you sign.</h1>
+      <p class="lede">Yinko tells people and AI agents who they are about to pay or approve, and whether to trust it. Pick a situation and run the check.</p>
+
+      <div class="demo">
+        <div>
+          <ul class="presets" id="presets"></ul>
+          <div class="apirow">
+            <label for="api">Guard API address</label>
+            <input type="text" id="api" spellcheck="false" autocomplete="off">
+            <label class="check"><input type="checkbox" id="attest"> Record the verdict on-chain</label>
+          </div>
+        </div>
+        <div>
+          <div class="result" id="result" data-verdict="" aria-live="polite">
+            <p class="empty">No check yet. Choose a situation on the left.</p>
+          </div>
+          <details>
+            <summary>See the request sent to Yinko</summary>
+            <pre id="request">{}</pre>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <section id="record">
+      <h2>Recorded on-chain</h2>
+      <p class="summary" id="summary">Loading the registry from BNB Smart Chain testnet.</p>
+      <ul class="ledger" id="ledger"></ul>
+      <p class="status" id="status"></p>
+    </section>
+
+    <section id="agent">
+      <h2>The guard is an agent too</h2>
+      <p class="lede" style="margin-bottom:0">Yinko Guard has its own ERC-8004 identity, and its .ai name links to it on-chain.</p>
+      <dl class="facts" id="facts"></dl>
+    </section>
+  </main>
+
+  <footer>Built for the Binance Wallet and BNB Chain Agent ID Hackathon. Running on BNB Smart Chain testnet.</footer>
+</div>
+<script type="module" src="app.js"></script>
+</body>
+</html>
