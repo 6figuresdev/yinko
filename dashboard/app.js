@@ -10,7 +10,7 @@ const CONFIG = {
   identity: "0x8004A818BFB912233c491871b3d84c89A494BD9e",
   deployBlock: 143522632,
   explorer: "https://testnet.bscscan.com",
-  defaultApi: "http://localhost:8787",
+  defaultApi: "https://yinko.vercel.app",
   repo: "https://github.com/6figuresdev/yinko",
   pollMs: 15000,
   chunk: 4000,
