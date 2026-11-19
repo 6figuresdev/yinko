@@ -2,10 +2,14 @@
   "type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
   "name": "Yinko Guard",
   "agentName": "yinko",
-  "description": "Pre-signature guard for humans and AI agents on BNB Chain. Call before paying or approving: returns allow, warn or block with plain-language reasons (address poisoning, risky approvals, lookalike .ai names, one-way agent links).",
+  "description": "Pre-signature guard for humans and AI agents on BNB Chain. POST https://yinko.vercel.app/check before paying or approving: returns allow, warn or block with plain-language reasons (address poisoning, risky approvals, lookalike .ai names, one-way agent links).",
   "image": "",
   "active": true,
   "services": [
+    { "name": "guard-api", "endpoint": "https://yinko.vercel.app/health", "version": "0.3.0" },
     { "name": "web", "endpoint": "https://github.com/6figuresdev/yinko" }
+  ],
+  "registrations": [
+    { "agentId": 2880, "agentRegistry": "eip155:97:0x8004A818BFB912233c491871b3d84c89A494BD9e" }
   ]
 }
