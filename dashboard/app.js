@@ -1,23 +1,44 @@
 import { ATTESTED, LINKED, REASON_TEXT, decodeLog, shortAddr, timeAgo } from "./decode.js";
 
+const NETWORKS = {
+  mainnet: {
+    label: "BNB Smart Chain",
+    rpcs: ["https://bsc-dataseed.bnbchain.org", "https://bsc-rpc.publicnode.com", "https://bsc-dataseed1.defibit.io"],
+    registry: "0xdE93A1e641cD067Eb202dAF3666b1665b5915a44",
+    identity: "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+    deployBlock: 134762218,
+    explorer: "https://bscscan.com",
+    // Only verdicts written by these wallets are shown (anyone can call attest). Add the guard wallet address once it exists.
+    attesters: [],
+    // Only a name link made by this address counts (anyone can call linkAgent for a free name): the wallet that owns yinko.ai.
+    expectedOwner: "0xd21f31b9cdfd1a943fd990022d0e87006543d6b2",
+    agentFallback: "pending registration",
+  },
+  testnet: {
+    label: "BNB Smart Chain testnet",
+    rpcs: ["https://data-seed-prebsc-1-s1.bnbchain.org:8545", "https://bsc-testnet-rpc.publicnode.com", "https://data-seed-prebsc-2-s1.bnbchain.org:8545"],
+    registry: "0x760f6475de49bE4B1caac9849B9CE36421E1E7dA",
+    identity: "0x8004A818BFB912233c491871b3d84c89A494BD9e",
+    deployBlock: 143522632,
+    explorer: "https://testnet.bscscan.com",
+    attesters: ["0x9444a989db863d256de4f5395f9b10cbe425ad1d"],
+    expectedOwner: "0x9444a989db863d256de4f5395f9b10cbe425ad1d",
+    agentFallback: "2880",
+  },
+};
+const NET = new URLSearchParams(location.search).get("net") === "testnet" ? "testnet" : "mainnet";
 const CONFIG = {
-  rpcs: [
-    "https://data-seed-prebsc-1-s1.bnbchain.org:8545",
-    "https://bsc-testnet-rpc.publicnode.com",
-    "https://data-seed-prebsc-2-s1.bnbchain.org:8545",
-  ],
-  registry: "0x760f6475de49bE4B1caac9849B9CE36421E1E7dA",
-  identity: "0x8004A818BFB912233c491871b3d84c89A494BD9e",
-  deployBlock: 143522632,
-  explorer: "https://testnet.bscscan.com",
+  ...NETWORKS[NET],
   defaultApi: "https://yinko.vercel.app",
   repo: "https://github.com/6figuresdev/yinko",
   pollMs: 15000,
   chunk: 4000,
 };
 
+
 const $ = (id) => document.getElementById(id);
 document.getElementById("repo").href = CONFIG.repo;
+document.querySelector("footer").textContent = `Built for the Binance Wallet and BNB Chain Agent ID Hackathon. Running on ${CONFIG.label}.`;
 
 /* ---------------- live demo ---------------- */
 const ME = "0x9444a989DB863d256de4F5395f9b10CBE425Ad1D";
@@ -60,8 +81,11 @@ async function run(i, btn) {
   out.dataset.verdict = "";
   out.innerHTML = `<p class="empty">Checking...</p>`;
   try {
+    const headers = { "content-type": "application/json" };
+    const token = $("token").value.trim();
+    if (token) headers["x-yinko-token"] = token;
     const res = await fetch(apiInput.value.trim().replace(/\/$/, "") + "/check", {
-      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(req),
+      method: "POST", headers, body: JSON.stringify(req),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "The guard returned an error.");
@@ -127,6 +151,8 @@ async function poll() {
       for (const log of logs) {
         const ev = decodeLog(log);
         if (!ev) continue;
+        if (ev.kind === "attested" && CONFIG.attesters.length && !CONFIG.attesters.includes(ev.caller.toLowerCase())) continue;
+        if (ev.kind === "linked" && ev.owner.toLowerCase() !== CONFIG.expectedOwner) continue;
         const key = ev.tx + ":" + ev.logIndex;
         if (events.has(key)) continue;
         if (log.blockTimestamp) stamps.set(ev.block, Number(BigInt(log.blockTimestamp)));
@@ -177,8 +203,8 @@ function renderFacts() {
   const link = [...events.values()].find((e) => e.kind === "linked");
   const addr = (a) => `<a class="addr" href="${CONFIG.explorer}/address/${a}" target="_blank" rel="noopener">${a}</a>`;
   $("facts").innerHTML = `
-    <dt>Agent ID</dt><dd>${link ? esc(link.agentId) : "2880"} on the ERC-8004 Identity Registry</dd>
-    <dt>Name</dt><dd>${link ? esc(link.name) + ".ai, linked on-chain" : "yinko.ai"}</dd>
+    <dt>Agent ID</dt><dd>${link ? esc(link.agentId) : esc(CONFIG.agentFallback)} on the ERC-8004 Identity Registry</dd>
+    <dt>Name</dt><dd>${link ? esc(link.name) + ".ai, linked on-chain" : "yinko.ai (link pending)"}</dd>
     <dt>Yinko registry</dt><dd>${addr(CONFIG.registry)}</dd>
     <dt>Identity registry</dt><dd>${addr(CONFIG.identity)}</dd>`;
 }
