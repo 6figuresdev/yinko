@@ -32,27 +32,6 @@ const cors = { "access-control-allow-origin": "*", "access-control-allow-headers
 createServer(async (req, res) => {
   if (req.method === "OPTIONS") return void res.writeHead(204, cors).end();
   if (req.method === "GET" && req.url === "/health") return void res.writeHead(200, cors).end(JSON.stringify({ ok: true }));
-  // Temporary diagnostics: shows which settings this deployment sees. Public addresses and an RPC hostname only, never secrets. Remove once mainnet is confirmed.
-  if (req.method === "GET" && req.url?.startsWith("/diag")) {
-    const host = (u?: string) => { try { return new URL(u!).host; } catch { return u ? "(invalid url)" : "(unset)"; } };
-    const clean = (m: unknown) => String(m).replace(/https?:\/\/\S+/g, "[url]").slice(0, 300);
-    const info: Record<string, unknown> = {
-      chainId: process.env.CHAIN_ID ?? "(unset)",
-      rpcHost: host(process.env.BSC_RPC),
-      identityRegistry: process.env.IDENTITY_REGISTRY ?? "(unset)",
-      yinkoRegistry: process.env.YINKO_REGISTRY ?? "(unset)",
-      debugErrors: process.env.DEBUG_ERRORS ?? "(unset)",
-      attestTokenSet: Boolean(process.env.ATTEST_TOKEN),
-      guardKeySet: Boolean(process.env.GUARD_PRIVATE_KEY),
-    };
-    try {
-      const rec = await ctx.resolveName("yinko");
-      info.resolveYinko = rec
-        ? { owner: rec.owner, agentId: rec.erc8004AgentId, backLinkedName: rec.backLinkedName, endpoint: rec.endpoint, readError: rec.readError ? clean(rec.readError) : null }
-        : "not in names.json";
-    } catch (e) { info.resolveYinko = { threw: clean(e) }; }
-    return void res.writeHead(200, cors).end(JSON.stringify(info, null, 2));
-  }
   if (req.method === "POST" && req.url === "/check") {
     const fwd = req.headers["x-forwarded-for"];
     const ip = (typeof fwd === "string" ? fwd.split(",")[0].trim() : req.socket.remoteAddress) ?? "unknown";
