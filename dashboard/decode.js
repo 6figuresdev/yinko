@@ -19,6 +19,7 @@ export const REASON_TEXT = {
   NO_ERC8004: "No ERC-8004 identity linked",
   ONE_WAY_LINK: "Agent does not link back to the name",
   AGENT_READ_FAILED: "Could not read the agent from chain",
+  NOT_AN_AGENT_ID_HOLDER: "Recipient holds no Agent ID",
   ENDPOINT_DOWN: "Agent endpoint is down",
   HISTORY_UNAVAILABLE: "Could not read on-chain history",
 };

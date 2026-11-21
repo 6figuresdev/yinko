@@ -19,6 +19,7 @@ export interface CheckResponse {
   reasons: Reason[];
   suggestedCap: string | null;
   attestationTx?: string | null;
+  recipientHasAgentId?: boolean | null;   // true/false when the Agent ID registry could be read, null otherwise
 }
 
 export interface AgentRecord {
@@ -35,4 +36,5 @@ export interface ChainContext {
   knownSpenders(from: string): Promise<string[]>;
   registeredNames(): Promise<string[]>;
   resolveName(name: string): Promise<AgentRecord | null>;
+  holdsAgentId?(address: string): Promise<boolean | null>;   // balanceOf > 0 on the Agent ID registry
 }

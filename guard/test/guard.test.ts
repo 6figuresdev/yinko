@@ -70,3 +70,20 @@ test("a failed agent read says so instead of claiming a one-way link", async () 
   assert.ok(!r.reasons.some((x) => x.code === "ONE_WAY_LINK"));
   assert.equal(r.verdict, "warn");
 });
+test("naming an agent whose wallet holds no Agent ID is flagged; holders pass; unreadable registry is ignored", async () => {
+  const withId = (v: boolean | null): ChainContext => ({ ...ctx, holdsAgentId: async () => v });
+  const no = await check({ from: ME, to: OWNER, kind: "transfer", knownAddresses: [OWNER], agentName: "payagent" }, withId(false));
+  assert.ok(no.reasons.some((x) => x.code === "NOT_AN_AGENT_ID_HOLDER"));
+  assert.equal(no.recipientHasAgentId, false);
+  const yes = await check({ from: ME, to: OWNER, kind: "transfer", knownAddresses: [OWNER], agentName: "payagent" }, withId(true));
+  assert.ok(!yes.reasons.some((x) => x.code === "NOT_AN_AGENT_ID_HOLDER"));
+  assert.equal(yes.recipientHasAgentId, true);
+  const unknown = await check({ from: ME, to: OWNER, kind: "transfer", knownAddresses: [OWNER], agentName: "payagent" }, withId(null));
+  assert.ok(!unknown.reasons.some((x) => x.code === "NOT_AN_AGENT_ID_HOLDER"));
+});
+test("a name mismatch never reveals who owns the name", async () => {
+  const r = await check({ from: ME, to: GOOD, kind: "transfer", agentName: "payagent" }, ctx);
+  const m = r.reasons.find((x) => x.code === "NAME_ADDRESS_MISMATCH");
+  assert.ok(m);
+  assert.ok(!m!.message.includes(OWNER));
+});

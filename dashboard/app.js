@@ -104,13 +104,14 @@ function showResult(d) {
     : `<p class="empty">The recipient checked out. No warnings.</p>`;
   const cap = d.verdict === "block" ? "Do not sign. Suggested spend cap: 0."
     : d.suggestedCap ? `Suggested spend cap: ${esc(d.suggestedCap)}.` : "";
+  const agentId = d.recipientHasAgentId === true ? `<p class="cap">The recipient holds an Agent ID.</p>` : "";
   let tx = "";
   if (d.attestationTx) {
     tx = String(d.attestationTx).startsWith("0x")
       ? `<p>Recorded on-chain: <a class="tx" href="${CONFIG.explorer}/tx/${esc(d.attestationTx)}" target="_blank" rel="noopener">${esc(shortAddr(d.attestationTx))}</a></p>`
       : `<p>On-chain record failed: ${esc(d.attestationTx)}</p>`;
   }
-  out.innerHTML = `<p class="verdict">${esc(d.verdict[0].toUpperCase() + d.verdict.slice(1))}</p>${reasons}${cap ? `<p class="cap">${cap}</p>` : ""}${tx}`;
+  out.innerHTML = `<p class="verdict">${esc(d.verdict[0].toUpperCase() + d.verdict.slice(1))}</p>${reasons}${cap ? `<p class="cap">${cap}</p>` : ""}${agentId}${tx}`;
 }
 
 /* ---------------- on-chain ledger ---------------- */

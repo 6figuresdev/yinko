@@ -21,8 +21,18 @@ export async function check(req: CheckRequest, ctx: ChainContext): Promise<Check
     reasons.push(...checkLookalikeName(req.agentName, await ctx.registeredNames()));
     reasons.push(...(await checkAgentLink(req.agentName, req.to, ctx)));
   }
+  let recipientHasAgentId: boolean | null = null;
+  if (ctx.holdsAgentId && req.kind === "transfer") {
+    recipientHasAgentId = await ctx.holdsAgentId(req.to).catch(() => null);
+    if (req.agentName && recipientHasAgentId === false) {
+      reasons.push({
+        code: "NOT_AN_AGENT_ID_HOLDER", severity: "warn",
+        message: `The address you are paying does not hold an Agent ID, but you are paying it as "${req.agentName.replace(/\.ai$/i, "")}.ai". Agent IDs are non-transferable, so a real agent's wallet should hold one.`,
+      });
+    }
+  }
   const verdict = reasons.reduce<Verdict>((v, r) => (rank[r.severity] > rank[v] ? r.severity : v), "allow");
-  return { verdict, reasons, suggestedCap: cap(verdict, req.amount) };
+  return { verdict, reasons, suggestedCap: cap(verdict, req.amount), recipientHasAgentId };
 }
 
 function cap(v: Verdict, amount?: string): string | null {
