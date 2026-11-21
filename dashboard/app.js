@@ -8,8 +8,8 @@ const NETWORKS = {
     identity: "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
     deployBlock: 134762218,
     explorer: "https://bscscan.com",
-    // Only verdicts written by these wallets are shown (anyone can call attest). Add the guard wallet address once it exists.
-    attesters: [],
+    // Only verdicts written by these wallets are shown (anyone can call attest). The guard wallet.
+    attesters: ["0x2e6b692c81a924f23bc3f3090973d24a422c0e7c"],
     // Only a name link made by this address counts (anyone can call linkAgent for a free name): the wallet that owns yinko.ai.
     expectedOwner: "0xd21f31b9cdfd1a943fd990022d0e87006543d6b2",
     agentFallback: "pending registration",
