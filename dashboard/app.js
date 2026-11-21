@@ -145,10 +145,13 @@ async function poll() {
   try {
     const latest = Number(BigInt(await rpc("eth_blockNumber", [])));
     const fresh = [];
-    for (let from = lastBlock + 1; from <= latest; from += CONFIG.chunk) {
-      const to = Math.min(from + CONFIG.chunk - 1, latest);
-      const logs = await rpc("eth_getLogs", [{ address: CONFIG.registry, fromBlock: "0x" + from.toString(16), toBlock: "0x" + to.toString(16), topics: [[ATTESTED, LINKED]] }]);
-      for (const log of logs) {
+    const ranges = [];
+    for (let from = lastBlock + 1; from <= latest; from += CONFIG.chunk) ranges.push([from, Math.min(from + CONFIG.chunk - 1, latest)]);
+    // Fetch four ranges at a time: a few days of mainnet blocks is dozens of ranges, and one-by-one is slow.
+    for (let i = 0; i < ranges.length; i += 4) {
+      const batch = await Promise.all(ranges.slice(i, i + 4).map(([from, to]) =>
+        rpc("eth_getLogs", [{ address: CONFIG.registry, fromBlock: "0x" + from.toString(16), toBlock: "0x" + to.toString(16), topics: [[ATTESTED, LINKED]] }])));
+      for (const log of batch.flat()) {
         const ev = decodeLog(log);
         if (!ev) continue;
         if (ev.kind === "attested" && CONFIG.attesters.length && !CONFIG.attesters.includes(ev.caller.toLowerCase())) continue;
