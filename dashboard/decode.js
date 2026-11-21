@@ -18,6 +18,7 @@ export const REASON_TEXT = {
   NAME_ADDRESS_MISMATCH: "Name belongs to a different address",
   NO_ERC8004: "No ERC-8004 identity linked",
   ONE_WAY_LINK: "Agent does not link back to the name",
+  AGENT_READ_FAILED: "Could not read the agent from chain",
   ENDPOINT_DOWN: "Agent endpoint is down",
   HISTORY_UNAVAILABLE: "Could not read on-chain history",
 };

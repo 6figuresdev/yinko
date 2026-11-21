@@ -82,6 +82,10 @@ export async function checkAgentLink(name: string, to: string, ctx: ChainContext
   const rec = await ctx.resolveName(n);
   if (!rec) return [{ code: "NAME_UNRESOLVED", severity: "warn", message: `"${n}.ai" does not resolve to a known agent.` }];
   const out: Reason[] = [];
+  if (rec.readError) {
+    const detail = process.env.DEBUG_ERRORS === "1" ? ` Detail: ${String(rec.readError).slice(0, 200)}` : "";
+    return [{ code: "AGENT_READ_FAILED", severity: "warn", message: `Could not read this agent's on-chain record (chain or RPC problem), so its link could not be verified. Try again.${detail}` }];
+  }
   if (rec.owner.toLowerCase() !== to.toLowerCase()) out.push({ code: "NAME_ADDRESS_MISMATCH", severity: "block", message: `"${n}.ai" belongs to ${rec.owner}, not the address you are paying.` });
   if (!rec.erc8004AgentId) out.push({ code: "NO_ERC8004", severity: "warn", message: "This name is not linked to an ERC-8004 agent identity." });
   else if (rec.backLinkedName?.toLowerCase() !== n) out.push({ code: "ONE_WAY_LINK", severity: "warn", message: "The agent's registration file does not point back to this name. The link is one-way." });

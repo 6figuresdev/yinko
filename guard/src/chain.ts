@@ -72,15 +72,19 @@ export function bscContext(env = process.env): ChainContext {
       const entry = names()[name];
       if (!entry) return null;
       const rec: AgentRecord = { name, owner: entry.owner };
+      if (entry.agentId && !identity) rec.readError = "IDENTITY_REGISTRY is not configured";
       if (entry.agentId && identity) {
         try {
           const id = BigInt(entry.agentId);
           rec.erc8004AgentId = entry.agentId;
           rec.owner = await client.readContract({ address: identity, abi: ID_ABI, functionName: "ownerOf", args: [id] });
           const file = await fetchRegistrationFile(await client.readContract({ address: identity, abi: ID_ABI, functionName: "tokenURI", args: [id] }));
+          if (!file) rec.readError = "registration file could not be fetched or parsed";
           rec.backLinkedName = file?.agentName;
           rec.endpoint = file?.services?.find((s: any) => s?.endpoint)?.endpoint;
-        } catch { /* leave partial record; checks will warn */ }
+        } catch (e) {
+          rec.readError = (e as any)?.shortMessage ?? (e as Error)?.message ?? "read failed";
+        }
       }
       return rec;
     },

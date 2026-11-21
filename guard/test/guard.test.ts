@@ -63,3 +63,10 @@ test("RPC failure degrades to a warning instead of crashing", async () => {
   assert.ok(r.reasons.some((x) => x.code === "HISTORY_UNAVAILABLE"));
   assert.equal(r.verdict, "warn");
 });
+test("a failed agent read says so instead of claiming a one-way link", async () => {
+  const failing: ChainContext = { ...ctx, resolveName: async (n) => ({ name: n, owner: OWNER, erc8004AgentId: "9", readError: "rpc down" }) };
+  const r = await check({ from: ME, to: OWNER, kind: "transfer", knownAddresses: [OWNER], agentName: "payagent" }, failing);
+  assert.ok(r.reasons.some((x) => x.code === "AGENT_READ_FAILED"));
+  assert.ok(!r.reasons.some((x) => x.code === "ONE_WAY_LINK"));
+  assert.equal(r.verdict, "warn");
+});

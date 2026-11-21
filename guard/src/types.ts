@@ -27,6 +27,7 @@ export interface AgentRecord {
   erc8004AgentId?: string;
   backLinkedName?: string;   // name the agent's own registration file points back to
   endpoint?: string;
+  readError?: string;        // set when the on-chain read or registration file fetch failed
 }
 
 export interface ChainContext {
