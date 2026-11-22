@@ -1,6 +1,6 @@
 // Run: node test-decode.mjs. Fixtures are the real logs from the BSC testnet deployment.
 import assert from "node:assert/strict";
-import { decodeLog, shortAddr, timeAgo } from "./decode.js";
+import { decodeLog, decodeWatchLog, shortAddr, timeAgo } from "./decode.js";
 
 const attested = {
   topics: ["0x4296f24401037b46c9840bd01f07e122cfca7e3f0c67e0210eff52b318d303bf",
@@ -32,4 +32,22 @@ assert.equal(decodeLog({ ...attested, topics: ["0x00"] }), null);
 assert.equal(shortAddr("0x9444a989DB863d256de4F5395f9b10CBE425Ad1D"), "0x9444...Ad1D");
 assert.equal(timeAgo(1000, 1000 * 1000 + 5000), "just now");
 assert.equal(timeAgo(1000, 1000 * 1000 + 300_000), "5 min ago");
+
+// YinkoWatch events (payload produced with cast abi-encode)
+const reported = {
+  topics: ["0x048dae55477045d74a4bc39e098572a3205fa3726a83cb8e9accef3679cbeb15",
+    "0x0000000000000000000000002e6b692c81a924f23bc3f3090973d24a422c0e7c",
+    "0x000000000000000000000000d21f31b9cdfd1a943fd990022d0e87006543d6b2"],
+  data: "0x504f49534f4e494e47000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000011636f70696573206d792061646472657373000000000000000000000000000000",
+  transactionHash: "0xabc", blockNumber: "0x10", logIndex: "0x2",
+};
+const w = decodeWatchLog(reported);
+assert.equal(w.kind, "reported");
+assert.equal(w.reason, "POISONING");
+assert.equal(w.note, "copies my address");
+assert.equal(w.target, "0x2e6b692c81a924f23bc3f3090973d24a422c0e7c");
+assert.equal(w.actor, "0xd21f31b9cdfd1a943fd990022d0e87006543d6b2");
+const v = decodeWatchLog({ ...reported, topics: ["0x31e804e08528ef8fbc129e5418c4c9b358654ad2542152980b82f31253a12419", reported.topics[1], reported.topics[2]], data: "0x" });
+assert.equal(v.kind, "vouched");
+assert.equal(decodeWatchLog({ ...reported, topics: ["0x00", reported.topics[1], reported.topics[2]] }), null);
 console.log("decode tests passed");

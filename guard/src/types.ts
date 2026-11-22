@@ -20,6 +20,7 @@ export interface CheckResponse {
   suggestedCap: string | null;
   attestationTx?: string | null;
   recipientHasAgentId?: boolean | null;   // true/false when the Agent ID registry could be read, null otherwise
+  communitySignals?: { reports: number; vouches: number } | null;   // from Agent ID holders, via YinkoWatch
 }
 
 export interface AgentRecord {
@@ -37,4 +38,5 @@ export interface ChainContext {
   registeredNames(): Promise<string[]>;
   resolveName(name: string): Promise<AgentRecord | null>;
   holdsAgentId?(address: string): Promise<boolean | null>;   // balanceOf > 0 on the Agent ID registry
+  watchSignals?(address: string): Promise<{ reports: number; vouches: number } | null>;   // YinkoWatch counts
 }

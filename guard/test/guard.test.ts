@@ -87,3 +87,18 @@ test("a name mismatch never reveals who owns the name", async () => {
   assert.ok(m);
   assert.ok(!m!.message.includes(OWNER));
 });
+test("reports from Agent ID holders: one warns, two block, vouches never hide a report, unreadable is ignored", async () => {
+  const withSignals = (v: { reports: number; vouches: number } | null): ChainContext => ({ ...ctx, watchSignals: async () => v });
+  const one = await check({ from: ME, to: GOOD, kind: "transfer" }, withSignals({ reports: 1, vouches: 0 }));
+  assert.equal(one.verdict, "warn");
+  assert.ok(one.reasons.some((x) => x.code === "REPORTED_BY_AGENT_ID_HOLDERS"));
+  const two = await check({ from: ME, to: GOOD, kind: "transfer" }, withSignals({ reports: 2, vouches: 5 }));
+  assert.equal(two.verdict, "block");
+  assert.deepEqual(two.communitySignals, { reports: 2, vouches: 5 });
+  const vouchedOnly = await check({ from: ME, to: GOOD, kind: "transfer" }, withSignals({ reports: 0, vouches: 3 }));
+  assert.equal(vouchedOnly.verdict, "allow");
+  assert.deepEqual(vouchedOnly.communitySignals, { reports: 0, vouches: 3 });
+  const unreadable = await check({ from: ME, to: GOOD, kind: "transfer" }, withSignals(null));
+  assert.equal(unreadable.verdict, "allow");
+  assert.equal(unreadable.communitySignals, null);
+});

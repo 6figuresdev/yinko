@@ -2,6 +2,9 @@
 export const ATTESTED = "0x4296f24401037b46c9840bd01f07e122cfca7e3f0c67e0210eff52b318d303bf";
 export const LINKED = "0xa20446bb97605cce18f8f5f64faf6cdc2355b7bb57287ff6073e07feb604af98";
 
+export const WATCH_REPORTED = "0x048dae55477045d74a4bc39e098572a3205fa3726a83cb8e9accef3679cbeb15";
+export const WATCH_VOUCHED = "0x31e804e08528ef8fbc129e5418c4c9b358654ad2542152980b82f31253a12419";
+
 export const VERDICTS = ["allow", "warn", "block"];
 
 export const REASON_TEXT = {
@@ -20,6 +23,7 @@ export const REASON_TEXT = {
   ONE_WAY_LINK: "Agent does not link back to the name",
   AGENT_READ_FAILED: "Could not read the agent from chain",
   NOT_AN_AGENT_ID_HOLDER: "Recipient holds no Agent ID",
+  REPORTED_BY_AGENT_ID_HOLDERS: "Reported by Agent ID holders",
   ENDPOINT_DOWN: "Agent endpoint is down",
   HISTORY_UNAVAILABLE: "Could not read on-chain history",
 };
@@ -60,6 +64,21 @@ export function decodeLinked(log) {
     owner: "0x" + log.topics[2].slice(26),
     agentId: BigInt(log.topics[3]).toString(),
   };
+}
+
+// YinkoWatch events: Reported(target indexed, reporter indexed, bytes32 reason, string note) and Vouched(target indexed, voucher indexed).
+export function decodeWatchLog(log) {
+  const base = { tx: log.transactionHash, block: Number(BigInt(log.blockNumber)), logIndex: Number(BigInt(log.logIndex)) };
+  const target = "0x" + log.topics[1].slice(26);
+  const actor = "0x" + log.topics[2].slice(26);
+  if (log.topics[0] === WATCH_VOUCHED) return { ...base, kind: "vouched", target, actor };
+  if (log.topics[0] !== WATCH_REPORTED) return null;
+  const data = strip(log.data);
+  const len = Number(BigInt("0x" + data.slice(128, 192)));
+  const noteHex = data.slice(192, 192 + len * 2);
+  let note = "";
+  for (let i = 0; i < noteHex.length; i += 2) note += String.fromCharCode(parseInt(noteHex.slice(i, i + 2), 16));
+  return { ...base, kind: "reported", target, actor, reason: bytes32ToString(data.slice(0, 64)), note };
 }
 
 export function decodeLog(log) {

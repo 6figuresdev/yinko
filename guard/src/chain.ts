@@ -8,6 +8,7 @@ const APPROVAL = parseAbiItem("event Approval(address indexed owner, address ind
 const AGENT_ID_ABI = parseAbi(["function balanceOf(address owner) view returns (uint256)"]);
 // SPACE ID Agent ID registry (ERC-721, non-transferable) on BNB Smart Chain mainnet.
 const AGENT_ID_MAINNET = "0x60B9262456dE011F7d15a54CdD8c48bAaa8B022F";
+const WATCH_ABI = parseAbi(["function signalsOf(address target) view returns (uint32 reports, uint32 vouches)"]);
 const ID_ABI = parseAbi(["function ownerOf(uint256) view returns (address)", "function tokenURI(uint256) view returns (string)"]);
 
 interface NameEntry { owner: string; agentId?: string }
@@ -16,6 +17,7 @@ export function bscContext(env = process.env): ChainContext {
   const chain = Number(env.CHAIN_ID ?? 97) === 56 ? bsc : bscTestnet;
   const client = createPublicClient({ chain, transport: http(env.BSC_RPC) });
   const identity = env.IDENTITY_REGISTRY as Address | undefined;
+  const watch = env.WATCH_CONTRACT as Address | undefined;
   const agentIdRegistry = (env.AGENT_ID_REGISTRY ?? (Number(env.CHAIN_ID ?? 97) === 56 ? AGENT_ID_MAINNET : undefined)) as Address | undefined;
   const blocks = BigInt(env.HISTORY_BLOCKS ?? 50000);
   const chunk = BigInt(env.CHUNK_BLOCKS ?? 5000);
@@ -74,6 +76,14 @@ export function bscContext(env = process.env): ChainContext {
       if (!agentIdRegistry || !isAddress(address)) return null;
       try {
         return (await client.readContract({ address: agentIdRegistry, abi: AGENT_ID_ABI, functionName: "balanceOf", args: [address] })) > 0n;
+      } catch { return null; }
+    },
+    // Reports and vouches from Agent ID holders (YinkoWatch). Not configured or unreadable returns null.
+    watchSignals: async (address) => {
+      if (!watch || !isAddress(address)) return null;
+      try {
+        const [reports, vouches] = await client.readContract({ address: watch, abi: WATCH_ABI, functionName: "signalsOf", args: [address] });
+        return { reports: Number(reports), vouches: Number(vouches) };
       } catch { return null; }
     },
     registeredNames: async () => Object.keys(names()),

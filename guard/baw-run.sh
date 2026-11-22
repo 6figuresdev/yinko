@@ -2,7 +2,7 @@
 # Preview a mainnet contract call, show what it does, ask for confirmation, then execute it
 # before the preview expires. Usage: ./baw-run.sh <contract-address> <0x-calldata>
 set -u
-AW="${AW:-0xd21f31b9cdfd1a943fd990022d0e87006543d6b2}"
+AW="${AW:?Set AW to your own Agentic Wallet address first (baw wallet address --json)}"
 TO="${1:?contract address}"; DATA="${2:?calldata}"
 
 OUT=""

@@ -31,8 +31,20 @@ export async function check(req: CheckRequest, ctx: ChainContext): Promise<Check
       });
     }
   }
+  let communitySignals: { reports: number; vouches: number } | null = null;
+  if (ctx.watchSignals) {
+    communitySignals = await ctx.watchSignals(req.to).catch(() => null);
+    if (communitySignals && communitySignals.reports > 0) {
+      const n = communitySignals.reports;
+      reasons.push({
+        code: "REPORTED_BY_AGENT_ID_HOLDERS",
+        severity: n >= 2 ? "block" : "warn",
+        message: `${n} Agent ID holder${n === 1 ? " has" : "s have"} reported this address as unsafe.`,
+      });
+    }
+  }
   const verdict = reasons.reduce<Verdict>((v, r) => (rank[r.severity] > rank[v] ? r.severity : v), "allow");
-  return { verdict, reasons, suggestedCap: cap(verdict, req.amount), recipientHasAgentId };
+  return { verdict, reasons, suggestedCap: cap(verdict, req.amount), recipientHasAgentId, communitySignals };
 }
 
 function cap(v: Verdict, amount?: string): string | null {

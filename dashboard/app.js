@@ -1,4 +1,4 @@
-import { ATTESTED, LINKED, REASON_TEXT, decodeLog, shortAddr, timeAgo } from "./decode.js";
+import { ATTESTED, LINKED, WATCH_REPORTED, WATCH_VOUCHED, REASON_TEXT, decodeLog, decodeWatchLog, shortAddr, timeAgo } from "./decode.js";
 
 const NETWORKS = {
   mainnet: {
@@ -13,6 +13,9 @@ const NETWORKS = {
     // Only a name link made by this address counts (anyone can call linkAgent for a free name): the wallet that owns yinko.ai.
     expectedOwner: "0xd21f31b9cdfd1a943fd990022d0e87006543d6b2",
     agentFallback: "pending registration",
+    // YinkoWatch (reports and vouches from Agent ID holders). Fill both in after deploying it; the section stays hidden until then.
+    watch: "0x42Fd66C871Ef9EeF67A6F3C55351aA7E75d826b1",
+    watchDeployBlock: 135017474,
   },
   testnet: {
     label: "BNB Smart Chain testnet",
@@ -24,6 +27,8 @@ const NETWORKS = {
     attesters: ["0x9444a989db863d256de4f5395f9b10cbe425ad1d"],
     expectedOwner: "0x9444a989db863d256de4f5395f9b10cbe425ad1d",
     agentFallback: "2880",
+    watch: "",
+    watchDeployBlock: 0,
   },
 };
 const NET = new URLSearchParams(location.search).get("net") === "testnet" ? "testnet" : "mainnet";
@@ -104,6 +109,9 @@ function showResult(d) {
     : `<p class="empty">The recipient checked out. No warnings.</p>`;
   const cap = d.verdict === "block" ? "Do not sign. Suggested spend cap: 0."
     : d.suggestedCap ? `Suggested spend cap: ${esc(d.suggestedCap)}.` : "";
+  const cs = d.communitySignals;
+  const signals = cs && (cs.reports > 0 || cs.vouches > 0)
+    ? `<p class="cap">Agent ID holders: ${cs.reports} ${cs.reports === 1 ? "report" : "reports"}, ${cs.vouches} ${cs.vouches === 1 ? "vouch" : "vouches"}.</p>` : "";
   const agentId = d.recipientHasAgentId === true ? `<p class="cap">The recipient holds an Agent ID.</p>` : "";
   let tx = "";
   if (d.attestationTx) {
@@ -111,7 +119,7 @@ function showResult(d) {
       ? `<p>Recorded on-chain: <a class="tx" href="${CONFIG.explorer}/tx/${esc(d.attestationTx)}" target="_blank" rel="noopener">${esc(shortAddr(d.attestationTx))}</a></p>`
       : `<p>On-chain record failed: ${esc(d.attestationTx)}</p>`;
   }
-  out.innerHTML = `<p class="verdict">${esc(d.verdict[0].toUpperCase() + d.verdict.slice(1))}</p>${reasons}${cap ? `<p class="cap">${cap}</p>` : ""}${agentId}${tx}`;
+  out.innerHTML = `<p class="verdict">${esc(d.verdict[0].toUpperCase() + d.verdict.slice(1))}</p>${reasons}${cap ? `<p class="cap">${cap}</p>` : ""}${agentId}${signals}${tx}`;
 }
 
 /* ---------------- on-chain ledger ---------------- */
@@ -216,6 +224,65 @@ function renderFacts() {
 const cap1 = (s) => s[0].toUpperCase() + s.slice(1);
 function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
 
+/* ---------------- signals from Agent ID holders (YinkoWatch) ---------------- */
+const signalEvents = new Map();
+let watchLast = CONFIG.watchDeployBlock - 1;
+let watchFirst = true;
+
+async function pollWatch() {
+  if (!CONFIG.watch) return;
+  $("signals").hidden = false;
+  $("signals-nav").hidden = false;
+  try {
+    const latest = Number(BigInt(await rpc("eth_blockNumber", [])));
+    const ranges = [];
+    for (let from = watchLast + 1; from <= latest; from += CONFIG.chunk) ranges.push([from, Math.min(from + CONFIG.chunk - 1, latest)]);
+    const fresh = new Set();
+    for (let i = 0; i < ranges.length; i += 4) {
+      const batch = await Promise.all(ranges.slice(i, i + 4).map(([from, to]) =>
+        rpc("eth_getLogs", [{ address: CONFIG.watch, fromBlock: "0x" + from.toString(16), toBlock: "0x" + to.toString(16), topics: [[WATCH_REPORTED, WATCH_VOUCHED]] }])));
+      for (const log of batch.flat()) {
+        const ev = decodeWatchLog(log);
+        if (!ev) continue;
+        const key = ev.tx + ":" + ev.logIndex;
+        if (signalEvents.has(key)) continue;
+        if (log.blockTimestamp) stamps.set(ev.block, Number(BigInt(log.blockTimestamp)));
+        signalEvents.set(key, ev);
+        fresh.add(key);
+      }
+    }
+    watchLast = latest;
+    for (const ev of signalEvents.values()) ev.ts = await blockTime(ev.block).catch(() => null);
+    renderSignals(watchFirst ? new Set() : fresh);
+    watchFirst = false;
+  } catch (e) {
+    $("signals-summary").textContent = "Could not read the signals right now. Retrying.";
+  }
+}
+
+function renderSignals(freshKeys) {
+  const all = [...signalEvents.entries()].sort((a, b) => b[1].block - a[1].block || b[1].logIndex - a[1].logIndex);
+  const holders = new Set(all.map(([, e]) => e.actor)).size;
+  const reports = all.filter(([, e]) => e.kind === "reported").length;
+  $("signals-summary").textContent = all.length === 0
+    ? "Nothing here yet. Agent ID holders can report an address as unsafe or vouch for it."
+    : `${holders} Agent ID ${holders === 1 ? "holder has" : "holders have"} taken part: ${reports} ${reports === 1 ? "report" : "reports"}, ${all.length - reports} ${all.length - reports === 1 ? "vouch" : "vouches"}.`;
+  const ul = $("signals-ledger");
+  ul.innerHTML = "";
+  for (const [key, e] of all.slice(0, 40)) {
+    const li = document.createElement("li");
+    li.className = "row" + (freshKeys.has(key) ? " fresh" : "");
+    li.dataset.verdict = e.kind === "reported" ? "warn" : "allow";
+    const what = e.kind === "reported"
+      ? `Reported<span>${esc(REASON_TEXT[e.reason] || e.reason)}${e.note ? ": " + esc(e.note) : ""}</span>`
+      : `Vouched for<span>By an Agent ID holder</span>`;
+    li.innerHTML = `<span class="bar"></span><span class="what">${what}</span><span class="addr">${esc(shortAddr(e.target))}</span><span class="when">${esc(e.ts ? timeAgo(e.ts) : "")}</span><a class="tx" href="${CONFIG.explorer}/tx/${e.tx}" target="_blank" rel="noopener">${esc(shortAddr(e.tx))}</a>`;
+    ul.appendChild(li);
+  }
+}
+
 renderFacts();
 poll();
+pollWatch();
 setInterval(poll, CONFIG.pollMs);
+setInterval(pollWatch, CONFIG.pollMs);

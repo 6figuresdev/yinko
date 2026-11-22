@@ -17,7 +17,10 @@ Click "A verified agent". Show the green Allow. Say: "This is a real agent. Yink
 **Act 4: recorded on-chain (2:20 to 2:50)**
 Type the operator token, tick "Record the verdict on-chain", and run one check. Show the transaction link in the result, then the new row appearing in "Recorded on-chain". Say: "Every verdict can be written to the YinkoRegistry contract on mainnet."
 
-**Close (2:50 to 3:10)**
+**Agent ID signals (2:50 to 3:10)**
+Scroll to "Signals from Agent ID holders". Say: "Only Agent ID holders can report an address or vouch for it. The guard reads these on-chain and warns when verified agents have flagged a recipient." Show one real row and its transaction.
+
+**Close (3:10 to 3:30)**
 Show the README section on the MCP tool. Say: "Agents call this as one tool before any payment. One guard for people and agents." Show the repository link.
 
 Do not show the operator token or any private key on screen. Blur the token field or record that step with the token already filled and hidden.
