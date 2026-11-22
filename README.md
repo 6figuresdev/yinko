@@ -73,7 +73,7 @@ Everything below is on BNB Smart Chain mainnet (chain 56). Source verified on Bs
 |---|---|
 | YinkoRegistry | `0xdE93A1e641cD067Eb202dAF3666b1665b5915a44` (deployed at block 134762218) |
 | ERC-8004 Identity Registry | `0x8004A169FB4a3325136EB29fA0ceB6D2e539a432` |
-| YinkoWatch (Agent ID-gated reports and vouches) | `0x42Fd66C871Ef9EeF67A6F3C55351aA7E75d826b1` |
+| YinkoWatch (Agent ID-gated reports and vouches) | `0x42Fd66C871Ef9EeF67A6F3C55351aA7E75d826b1` ([source verified](https://bscscan.com/address/0x42Fd66C871Ef9EeF67A6F3C55351aA7E75d826b1#code)) |
 | Agent ID registry (SPACE ID) | `0x60B9262456dE011F7d15a54CdD8c48bAaa8B022F` |
 | Guard agent ID | `420531` |
 | Agent owner / yinko.ai wallet | `0xd21f31b9cdfd1a943fd990022d0e87006543d6b2` |
