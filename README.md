@@ -65,7 +65,7 @@ Yinko ships an MCP server with one tool, `yinko_check`. Its description tells th
 
 ## On-chain
 
-Everything below is on BNB Smart Chain mainnet (chain 56).
+Everything below is on BNB Smart Chain mainnet (chain 56). Source verified on BscScan: https://bscscan.com/address/0xdE93A1e641cD067Eb202dAF3666b1665b5915a44#code
 
 | Item | Value |
 |---|---|
