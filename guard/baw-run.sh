@@ -5,6 +5,18 @@ set -u
 AW="${AW:?Set AW to your own Agentic Wallet address first (baw wallet address --json)}"
 TO="${1:?contract address}"; DATA="${2:?calldata}"
 
+# Yinko check first. Token approvals (approve, increaseAllowance, setApprovalForAll) go through the guard before any preview.
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+case "${DATA:0:10}" in
+  0x095ea7b3|0x39509351|0xa22cb465)
+    SPENDER="0x${DATA:34:40}"
+    "$HERE/yinko-check.sh" --from "$AW" --to "$SPENDER" --approval-calldata "$DATA"; RC=$?
+    if [ "$RC" -eq 20 ]; then echo "Yinko says BLOCK. Not previewing and not executing."; exit 1; fi
+    if [ "$RC" -eq 30 ]; then echo "Yinko could not be reached. Continuing is your decision."; fi
+    ;;
+  *) echo "Yinko: this is a contract call, not a transfer or an approval, so no Yinko check applies." ;;
+esac
+
 OUT=""
 for i in 1 2 3 4 5 6; do
   TRY=$(baw contract-call preview --binanceChainId 56 --from "$AW" --to "$TO" --value 0 --inputData "$DATA" --json 2>&1)

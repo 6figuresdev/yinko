@@ -93,6 +93,20 @@ dl.facts dd { margin: 0; overflow-wrap: anywhere; }
 dl.facts .addr { font-family: var(--code); font-size: 0.9rem; }
 footer { padding: 2rem 0 3rem; border-top: 2px solid var(--ink); color: var(--ink-soft); }
 
+
+/* own check + wallet guide */
+details.own { margin-top: 1.5rem; border-top: 2px solid var(--ink); padding-top: 1rem; }
+details.own summary { font: 600 1.15rem/1.3 var(--body); cursor: pointer; }
+.own form { display: grid; gap: 0.7rem; margin-top: 0.9rem; }
+.own label { font-size: 0.9rem; color: var(--ink-soft); display: grid; gap: 0.25rem; }
+.own input, .own select, .own textarea { font: 400 0.95rem var(--code); padding: 0.55rem 0.6rem; border: 1px solid var(--ink-soft); border-radius: 4px; background: #fff; color: var(--ink); width: 100%; }
+.own textarea { min-height: 4.5rem; }
+.own button.go { font: 600 1rem var(--body); background: var(--ink); color: var(--paper); border: 2px solid var(--ink); padding: 0.75rem 1rem; border-radius: 4px; cursor: pointer; }
+.own .fine { font-size: 0.85rem; color: var(--ink-soft); margin: 0; }
+ol.steps { padding-left: 1.2rem; max-width: 46rem; }
+ol.steps li { margin-bottom: 1.1rem; }
+ol.steps pre { margin-top: 0.4rem; }
+
 @media (max-width: 52rem) {
   .demo { grid-template-columns: 1fr; }
   .row { grid-template-columns: 8px minmax(0, 1fr) auto; row-gap: 0.1rem; }
@@ -107,7 +121,7 @@ footer { padding: 2rem 0 3rem; border-top: 2px solid var(--ink); color: var(--in
 <div class="wrap">
   <header class="top">
     <a class="mark" href="#top">Yinko</a>
-    <nav><a href="#record">On-chain record</a><a id="signals-nav" href="#signals" hidden>Agent ID signals</a><a href="#agent">The agent</a><a id="repo" href="#">Code</a></nav>
+    <nav><a href="#record">On-chain record</a><a id="signals-nav" href="#signals" hidden>Agent ID signals</a><a href="#wallet">Use with your wallet</a><a href="#agent">The agent</a><a id="repo" href="#">Code</a></nav>
   </header>
 
   <main id="top">
@@ -118,6 +132,25 @@ footer { padding: 2rem 0 3rem; border-top: 2px solid var(--ink); color: var(--in
       <div class="demo">
         <div>
           <ul class="presets" id="presets"></ul>
+          <details class="own" open>
+            <summary>Check your own payment</summary>
+            <form id="own-form" novalidate>
+              <label>Your wallet (public address)
+                <input type="text" id="own-from" placeholder="0x... your Agentic Wallet address" spellcheck="false" autocomplete="off"></label>
+              <label>What are you about to sign?
+                <select id="own-kind"><option value="transfer">A payment</option><option value="approval">A token approval</option></select></label>
+              <label>Paying to (or the spender, for an approval)
+                <input type="text" id="own-to" placeholder="0x... recipient" spellcheck="false" autocomplete="off"></label>
+              <label>Agent name, if you were told one (optional)
+                <input type="text" id="own-name" placeholder="for example yinko" spellcheck="false" autocomplete="off"></label>
+              <label>Amount (optional)
+                <input type="text" id="own-amount" placeholder="25" inputmode="decimal" autocomplete="off"></label>
+              <label id="own-calldata-row" hidden>Transaction data for the approval
+                <textarea id="own-calldata" placeholder="0x095ea7b3..." spellcheck="false"></textarea></label>
+              <button type="submit" class="go">Run the check</button>
+              <p class="fine">Only public addresses are sent. This page never asks you to connect a wallet, sign anything or scan a code.</p>
+            </form>
+          </details>
           <div class="apirow">
             <label for="api">Guard API address</label>
             <input type="text" id="api" spellcheck="false" autocomplete="off">
@@ -140,7 +173,7 @@ footer { padding: 2rem 0 3rem; border-top: 2px solid var(--ink); color: var(--in
 
     <section id="record">
       <h2>Recorded on-chain</h2>
-      <p class="summary" id="summary">Loading the registry from BNB Smart Chain testnet.</p>
+      <p class="summary" id="summary">Loading the registry from BNB Smart Chain.</p>
       <ul class="ledger" id="ledger"></ul>
       <p class="status" id="status"></p>
     </section>
@@ -149,6 +182,24 @@ footer { padding: 2rem 0 3rem; border-top: 2px solid var(--ink); color: var(--in
       <h2>Signals from Agent ID holders</h2>
       <p class="summary" id="signals-summary">Loading.</p>
       <ul class="ledger" id="signals-ledger"></ul>
+    </section>
+
+    <section id="wallet">
+      <h2>Use it with your Binance Agentic Wallet</h2>
+      <p class="lede" style="margin-bottom:1rem">Your Agentic Wallet lives in the Binance app and has no browser extension, so there is no connect button here, on purpose. Yinko works as a check in front of the wallet.</p>
+      <ol class="steps">
+        <li><strong>Get your wallet address.</strong>
+<pre>baw wallet address --json</pre></li>
+        <li><strong>Check before you send.</strong> Use the form above, or the command line (exit code 0 allow, 10 warn, 20 block):
+<pre>git clone https://github.com/6figuresdev/yinko.git &amp;&amp; cd yinko/guard
+./yinko-check.sh --from YOUR_WALLET_ADDRESS --to RECIPIENT_ADDRESS --amount 25</pre></li>
+        <li><strong>Approvals are checked for you.</strong> The helper below runs Yinko first and refuses to continue on a block, then shows the Binance preview and asks for your confirmation:
+<pre>export AW=YOUR_WALLET_ADDRESS
+./baw-run.sh TOKEN_CONTRACT_ADDRESS APPROVAL_CALLDATA</pre></li>
+        <li><strong>If an AI agent drives your wallet,</strong> give it the Yinko skill so it checks before every transfer or approval, and stops on a block:
+<pre><a href="https://github.com/6figuresdev/yinko/blob/main/skills/yinko-guard/SKILL.md">skills/yinko-guard/SKILL.md</a></pre></li>
+      </ol>
+      <p class="fine" style="color:var(--ink-soft)">Yinko only advises. It never signs, never holds funds, and never replaces the confirmation in the Binance app.</p>
     </section>
 
     <section id="agent">

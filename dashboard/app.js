@@ -77,9 +77,7 @@ PRESETS.forEach((p, i) => {
   presetList.appendChild(li);
 });
 
-async function run(i, btn) {
-  presetList.querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", String(x === btn)));
-  const req = { ...PRESETS[i].req };
+async function send(req) {
   if ($("attest").checked) req.attest = true;
   $("request").textContent = JSON.stringify(req, null, 2);
   const out = $("result");
@@ -97,9 +95,36 @@ async function run(i, btn) {
     showResult(data);
   } catch (e) {
     out.dataset.verdict = "";
-    out.innerHTML = `<p class="empty">Could not reach the guard at ${esc(apiInput.value)}. Start it with <code>npm start</code> in the guard folder, or change the address on the left.</p>`;
+    out.innerHTML = `<p class="empty">${esc(e.message && !/fetch|network|Failed/i.test(e.message) ? e.message : "Could not reach the guard at " + apiInput.value + ". Check the address in the guard API box.")}</p>`;
   }
 }
+
+async function run(i, btn) {
+  presetList.querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", String(x === btn)));
+  await send({ ...PRESETS[i].req });
+}
+
+/* ---- check your own payment: public addresses only, nothing is connected or signed ---- */
+const ADDR = /^0x[0-9a-fA-F]{40}$/;
+$("own-kind").addEventListener("change", () => { $("own-calldata-row").hidden = $("own-kind").value !== "approval"; });
+$("own-form").addEventListener("submit", (ev) => {
+  ev.preventDefault();
+  presetList.querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", "false"));
+  const from = $("own-from").value.trim(), to = $("own-to").value.trim();
+  const kind = $("own-kind").value, calldata = $("own-calldata").value.trim();
+  const fail = (m) => { const o = $("result"); o.dataset.verdict = ""; o.innerHTML = `<p class="empty">${esc(m)}</p>`; };
+  if (!ADDR.test(from)) return fail("Your wallet address must start with 0x and have 40 more characters.");
+  if (!ADDR.test(to)) return fail(kind === "approval" ? "The spender address must start with 0x and have 40 more characters." : "The recipient address must start with 0x and have 40 more characters.");
+  const req = { from, to, kind };
+  const amount = $("own-amount").value.trim(), name = $("own-name").value.trim();
+  if (amount && kind === "transfer") req.amount = amount;
+  if (name && kind === "transfer") req.agentName = name.replace(/\.ai$/i, "").toLowerCase();
+  if (kind === "approval") {
+    if (!/^0x[0-9a-fA-F]{136,}$/.test(calldata)) return fail("Paste the transaction data (it starts with 0x and is long) for the approval you are about to sign.");
+    req.calldata = calldata;
+  }
+  send(req);
+});
 
 function showResult(d) {
   const out = $("result");

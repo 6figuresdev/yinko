@@ -134,3 +134,14 @@ Guard settings live in `guard/.env.example`. Recording a verdict on-chain needs 
 - The contract is not audited.
 - A payment-backed reputation score is not built yet.
 - Reports and vouches are only as useful as the number of Agent ID holders who take part.
+
+## Use with a Binance Agentic Wallet
+
+An Agentic Wallet lives in the Binance app, so there is no connect-wallet button here, on purpose. Yinko is a check in front of the wallet:
+
+- **Dashboard:** the "Check your own payment" form takes public addresses only.
+- **Command line:** `guard/yinko-check.sh --from YOUR_WALLET --to RECIPIENT --amount 25` (exit 0 allow, 10 warn, 20 block, 30 could not check).
+- **Approvals:** `guard/baw-run.sh` runs Yinko first, stops on a block, then shows the Binance preview and asks for confirmation.
+- **AI agents:** give the agent `skills/yinko-guard/SKILL.md` so it checks before every transfer or approval.
+
+Yinko only advises. It never signs, never holds funds, and never replaces the confirmation in the Binance app.
