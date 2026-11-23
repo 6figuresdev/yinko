@@ -37,7 +37,7 @@ const CONFIG = {
   defaultApi: "https://yinko.vercel.app",
   repo: "https://github.com/6figuresdev/yinko",
   pollMs: 15000,
-  chunk: 4000,
+  chunk: 20000,
 };
 
 
@@ -174,38 +174,79 @@ async function blockTime(n) {
   return t;
 }
 
+/* ---- reading logs: start with big ranges, split when the RPC refuses, learn the size that works, and never blank the page ---- */
+const hexBlock = (n) => "0x" + n.toString(16);
+let adaptiveChunk = CONFIG.chunk;
+async function logsAdaptive(address, topics, from, to) {
+  try {
+    return await rpc("eth_getLogs", [{ address, fromBlock: hexBlock(from), toBlock: hexBlock(to), topics }]);
+  } catch (e) {
+    if (to - from < 1000) throw e;
+    const mid = Math.floor((from + to) / 2);
+    const a = await logsAdaptive(address, topics, from, mid);
+    const b = await logsAdaptive(address, topics, mid + 1, to);
+    adaptiveChunk = Math.max(1000, Math.min(adaptiveChunk, mid - from + 1));   // both halves worked, so remember the smaller size
+    return a.concat(b);
+  }
+}
+async function collectLogs(address, topics, fromBlock, latest) {
+  const logs = [];
+  let complete = true, cursor = fromBlock;
+  while (cursor <= latest) {
+    const ranges = [];
+    for (let k = 0; k < 3 && cursor <= latest; k++) { const end = Math.min(cursor + adaptiveChunk - 1, latest); ranges.push([cursor, end]); cursor = end + 1; }
+    const results = await Promise.allSettled(ranges.map(([x, y]) => logsAdaptive(address, topics, x, y)));
+    let failed = 0;
+    for (const r of results) { if (r.status === "fulfilled") logs.push(...r.value); else { failed++; complete = false; } }
+    if (failed === results.length) break;   // the RPC is refusing everything: stop and try again later
+  }
+  return { logs, complete };
+}
+let pollFails = 0, pollSkip = 0, watchFails = 0, watchSkip = 0;
+
+/* ---- the name link is read straight from contract state (one call), not from scanning history ---- */
+const NAME_HASH = "fc063000269ce91dc4ef9a0a7bb73848f6c6d6cdd26b8b88a54051cf4c2bd5b4"; // keccak256("yinko")
+let linkInfo = null;
+async function loadLink() {
+  try {
+    const out = await rpc("eth_call", [{ to: CONFIG.registry, data: "0xb2fccc7f" + NAME_HASH }, "latest"]);
+    const h = String(out).replace(/^0x/, "");
+    if (h.length >= 192) {
+      const owner = "0x" + h.slice(24, 64);
+      const agentId = BigInt("0x" + h.slice(64, 128)).toString();
+      if (owner.toLowerCase() === CONFIG.expectedOwner && agentId !== "0") linkInfo = { name: "yinko", agentId };
+    }
+  } catch { /* keep whatever we had */ }
+  renderFacts();
+}
+
 async function poll() {
+  if (pollSkip > 0) { pollSkip--; return; }
   const status = $("status");
   try {
     const latest = Number(BigInt(await rpc("eth_blockNumber", [])));
     const fresh = [];
-    const ranges = [];
-    for (let from = lastBlock + 1; from <= latest; from += CONFIG.chunk) ranges.push([from, Math.min(from + CONFIG.chunk - 1, latest)]);
-    // Fetch four ranges at a time: a few days of mainnet blocks is dozens of ranges, and one-by-one is slow.
-    for (let i = 0; i < ranges.length; i += 4) {
-      const batch = await Promise.all(ranges.slice(i, i + 4).map(([from, to]) =>
-        rpc("eth_getLogs", [{ address: CONFIG.registry, fromBlock: "0x" + from.toString(16), toBlock: "0x" + to.toString(16), topics: [[ATTESTED, LINKED]] }])));
-      for (const log of batch.flat()) {
-        const ev = decodeLog(log);
-        if (!ev) continue;
-        if (ev.kind === "attested" && CONFIG.attesters.length && !CONFIG.attesters.includes(ev.caller.toLowerCase())) continue;
-        if (ev.kind === "linked" && ev.owner.toLowerCase() !== CONFIG.expectedOwner) continue;
-        const key = ev.tx + ":" + ev.logIndex;
-        if (events.has(key)) continue;
-        if (log.blockTimestamp) stamps.set(ev.block, Number(BigInt(log.blockTimestamp)));
-        events.set(key, ev);
-        fresh.push(key);
-      }
+    const { logs, complete } = await collectLogs(CONFIG.registry, [[ATTESTED, LINKED]], lastBlock + 1, latest);
+    for (const log of logs) {
+      const ev = decodeLog(log);
+      if (!ev) continue;
+      if (ev.kind === "attested" && CONFIG.attesters.length && !CONFIG.attesters.includes(ev.caller.toLowerCase())) continue;
+      if (ev.kind === "linked" && ev.owner.toLowerCase() !== CONFIG.expectedOwner) continue;
+      const key = ev.tx + ":" + ev.logIndex;
+      if (events.has(key)) continue;
+      if (log.blockTimestamp) stamps.set(ev.block, Number(BigInt(log.blockTimestamp)));
+      events.set(key, ev);
+      fresh.push(key);
     }
-    lastBlock = latest;
+    if (complete) { lastBlock = latest; pollFails = 0; } else { pollFails++; pollSkip = Math.min(pollFails, 6); }
     for (const ev of events.values()) ev.ts = await blockTime(ev.block).catch(() => null);
     render(new Set(firstLoad ? [] : fresh));
     firstLoad = false;
-    status.className = "status";
-    status.textContent = "Updates every 15 seconds.";
+    status.className = complete ? "status" : "status err";
+    status.textContent = complete ? "Updates every 15 seconds." : "Part of the history could not be loaded. Retrying.";
   } catch (e) {
     status.className = "status err";
-    status.textContent = "Could not read the testnet right now. Retrying.";
+    status.textContent = "Could not read the chain right now. Retrying.";
   }
 }
 
@@ -237,7 +278,7 @@ function render(freshKeys) {
 }
 
 function renderFacts() {
-  const link = [...events.values()].find((e) => e.kind === "linked");
+  const link = linkInfo || [...events.values()].find((e) => e.kind === "linked");
   const addr = (a) => `<a class="addr" href="${CONFIG.explorer}/address/${a}" target="_blank" rel="noopener">${a}</a>`;
   $("facts").innerHTML = `
     <dt>Agent ID</dt><dd>${link ? esc(link.agentId) : esc(CONFIG.agentFallback)} on the ERC-8004 Identity Registry</dd>
@@ -256,27 +297,23 @@ let watchFirst = true;
 
 async function pollWatch() {
   if (!CONFIG.watch) return;
+  if (watchSkip > 0) { watchSkip--; return; }
   $("signals").hidden = false;
   $("signals-nav").hidden = false;
   try {
     const latest = Number(BigInt(await rpc("eth_blockNumber", [])));
-    const ranges = [];
-    for (let from = watchLast + 1; from <= latest; from += CONFIG.chunk) ranges.push([from, Math.min(from + CONFIG.chunk - 1, latest)]);
     const fresh = new Set();
-    for (let i = 0; i < ranges.length; i += 4) {
-      const batch = await Promise.all(ranges.slice(i, i + 4).map(([from, to]) =>
-        rpc("eth_getLogs", [{ address: CONFIG.watch, fromBlock: "0x" + from.toString(16), toBlock: "0x" + to.toString(16), topics: [[WATCH_REPORTED, WATCH_VOUCHED]] }])));
-      for (const log of batch.flat()) {
-        const ev = decodeWatchLog(log);
-        if (!ev) continue;
-        const key = ev.tx + ":" + ev.logIndex;
-        if (signalEvents.has(key)) continue;
-        if (log.blockTimestamp) stamps.set(ev.block, Number(BigInt(log.blockTimestamp)));
-        signalEvents.set(key, ev);
-        fresh.add(key);
-      }
+    const { logs, complete } = await collectLogs(CONFIG.watch, [[WATCH_REPORTED, WATCH_VOUCHED]], watchLast + 1, latest);
+    for (const log of logs) {
+      const ev = decodeWatchLog(log);
+      if (!ev) continue;
+      const key = ev.tx + ":" + ev.logIndex;
+      if (signalEvents.has(key)) continue;
+      if (log.blockTimestamp) stamps.set(ev.block, Number(BigInt(log.blockTimestamp)));
+      signalEvents.set(key, ev);
+      fresh.add(key);
     }
-    watchLast = latest;
+    if (complete) { watchLast = latest; watchFails = 0; } else { watchFails++; watchSkip = Math.min(watchFails, 6); }
     for (const ev of signalEvents.values()) ev.ts = await blockTime(ev.block).catch(() => null);
     renderSignals(watchFirst ? new Set() : fresh);
     watchFirst = false;
@@ -306,8 +343,28 @@ function renderSignals(freshKeys) {
   }
 }
 
+/* ---- wallet guide: type your addresses once and every command fills in; nothing is sent anywhere ---- */
+const PH = { wallet: "YOUR_WALLET_ADDRESS", to: "RECIPIENT_ADDRESS" };
+function updatePlaceholders() {
+  const w = $("wal-wallet").value.trim(), t = $("wal-to").value.trim();
+  document.querySelectorAll(".ph").forEach((el) => {
+    const v = el.dataset.ph === "wallet" ? w : t;
+    el.textContent = ADDR.test(v) ? v : PH[el.dataset.ph];
+  });
+  if (ADDR.test(w)) $("own-from").value = w;
+  if (ADDR.test(t)) $("own-to").value = t;
+}
+["wal-wallet", "wal-to"].forEach((id) => $(id).addEventListener("input", updatePlaceholders));
+document.querySelectorAll("button.copy").forEach((b) => b.addEventListener("click", async () => {
+  try { await navigator.clipboard.writeText($(b.dataset.copy).textContent); b.textContent = "Copied"; }
+  catch { b.textContent = "Select the text and copy"; }
+  setTimeout(() => { b.textContent = "Copy"; }, 1800);
+}));
+
 renderFacts();
+loadLink();
 poll();
 pollWatch();
 setInterval(poll, CONFIG.pollMs);
+setInterval(loadLink, CONFIG.pollMs * 4);
 setInterval(pollWatch, CONFIG.pollMs);
