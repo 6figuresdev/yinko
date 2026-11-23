@@ -26,6 +26,7 @@ export function createMcpServer(ctx: ChainContext): McpServer {
         calldata: z.string().optional().describe("For approvals: the 0x transaction data about to be signed"),
         agentName: z.string().optional().describe("A .ai Agent ID name the recipient claims, e.g. 'payagent'"),
         knownAddresses: z.array(z.string()).optional().describe("Addresses this wallet has paid before (address book)"),
+        knownAgents: z.array(z.object({ name: z.string(), address: z.string() })).optional().describe("Agents the user already trusts: their name and real address. Used to catch lookalike names and wrong addresses."),
         attest: z.boolean().optional().describe("Also record the verdict on-chain in YinkoRegistry"),
       },
     },

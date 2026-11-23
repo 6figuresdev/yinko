@@ -17,9 +17,23 @@ export async function check(req: CheckRequest, ctx: ChainContext): Promise<Check
     catch { reasons.push({ code: "HISTORY_UNAVAILABLE", severity: "warn", message: "Could not read past approvals (RPC problem), so every spender looks new." }); }
     reasons.push(...checkApproval(req.calldata, spenders));
   }
+  let matchesSavedAgent = false;
   if (req.agentName) {
-    reasons.push(...checkLookalikeName(req.agentName, await ctx.registeredNames()));
-    reasons.push(...(await checkAgentLink(req.agentName, req.to, ctx)));
+    const typed = req.agentName.toLowerCase().replace(/\.ai$/, "");
+    const saved = (Array.isArray(req.knownAgents) ? req.knownAgents : []).slice(0, 50)
+      .filter((a) => a && typeof a.name === "string" && typeof a.address === "string")
+      .map((a) => ({ name: a.name.toLowerCase().replace(/\.ai$/, ""), address: a.address.toLowerCase() }));
+    // Names the caller trusts are compared too, so a lookalike of ANY saved agent is caught, not only the few the guard knows.
+    reasons.push(...checkLookalikeName(req.agentName, [...(await ctx.registeredNames()), ...saved.map((a) => a.name)]));
+    const link = await checkAgentLink(req.agentName, req.to, ctx);
+    const mine = saved.find((a) => a.name === typed);
+    if (mine && mine.address !== req.to.toLowerCase()) {
+      reasons.push({ code: "NAME_DIFFERS_FROM_YOUR_CONTACT", severity: "block", message: `You saved "${typed}.ai" with a different address than the one you are paying.` });
+    } else if (mine) {
+      matchesSavedAgent = true;
+    }
+    // A name and address the caller saved themselves is not "unknown", but every other check still applies.
+    reasons.push(...(matchesSavedAgent ? link.filter((r) => r.code !== "NAME_UNRESOLVED") : link));
   }
   let recipientHasAgentId: boolean | null = null;
   if (ctx.holdsAgentId && req.kind === "transfer") {
@@ -44,7 +58,7 @@ export async function check(req: CheckRequest, ctx: ChainContext): Promise<Check
     }
   }
   const verdict = reasons.reduce<Verdict>((v, r) => (rank[r.severity] > rank[v] ? r.severity : v), "allow");
-  return { verdict, reasons, suggestedCap: cap(verdict, req.amount), recipientHasAgentId, communitySignals };
+  return { verdict, reasons, suggestedCap: cap(verdict, req.amount), recipientHasAgentId, communitySignals, matchesSavedAgent };
 }
 
 function cap(v: Verdict, amount?: string): string | null {

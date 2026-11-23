@@ -70,7 +70,7 @@ export function checkLookalikeName(name: string, registered: string[]): Reason[]
   const sk = skeleton(n), out: Reason[] = [];
   for (const o of registered.map((r) => r.toLowerCase())) {
     if (o === n) continue;
-    if (skeleton(o) === sk) out.push({ code: "LOOKALIKE_NAME", severity: "block", message: `"${n}.ai" is a visual lookalike of the registered name "${o}.ai" (characters like 1/l or 0/o swapped).` });
+    if (skeleton(o) === sk) out.push({ code: "LOOKALIKE_NAME", severity: "block", message: `"${n}.ai" is a visual lookalike of the known name "${o}.ai" (characters like 1/l or 0/o swapped).` });
     else if (n.length >= 5 && lev(sk, skeleton(o)) === 1) out.push({ code: "NEAR_NAME", severity: "warn", message: `"${n}.ai" is one character away from "${o}.ai". Check the spelling.` });
   }
   return out;

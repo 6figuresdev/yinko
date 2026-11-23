@@ -9,6 +9,7 @@ export interface CheckRequest {
   calldata?: string;          // approvals: 0x-prefixed tx data
   agentName?: string;         // optional .ai Agent ID name of the recipient
   knownAddresses?: string[];  // wallet's address book; merged with on-chain history
+  knownAgents?: { name: string; address: string }[];   // agents the caller already trusts (name + real address)
   attest?: boolean;           // write the verdict on-chain (needs GUARD_PRIVATE_KEY)
 }
 
@@ -19,6 +20,7 @@ export interface CheckResponse {
   reasons: Reason[];
   suggestedCap: string | null;
   attestationTx?: string | null;
+  matchesSavedAgent?: boolean;   // the name and address match an agent the caller saved
   recipientHasAgentId?: boolean | null;   // true/false when the Agent ID registry could be read, null otherwise
   communitySignals?: { reports: number; vouches: number } | null;   // from Agent ID holders, via YinkoWatch
 }

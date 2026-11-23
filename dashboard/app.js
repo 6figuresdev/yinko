@@ -109,7 +109,7 @@ const ADDR = /^0x[0-9a-fA-F]{40}$/;
 $("own-kind").addEventListener("change", () => {
   const approval = $("own-kind").value === "approval";
   $("own-calldata-row").hidden = !approval;
-  for (const id of ["own-name-row", "own-amount-row", "own-known-row"]) $(id).hidden = approval;
+  for (const id of ["own-name-row", "own-amount-row", "own-known-row", "own-agents-row"]) $(id).hidden = approval;
 });
 $("own-form").addEventListener("submit", (ev) => {
   ev.preventDefault();
@@ -127,6 +127,15 @@ $("own-form").addEventListener("submit", (ev) => {
   const badKnown = known.find((x) => !ADDR.test(x));
   if (kind === "transfer" && badKnown) return fail("One of the addresses you paid before is not a valid address: " + badKnown.slice(0, 14) + "...");
   if (kind === "transfer" && known.length) req.knownAddresses = [...new Set(known)].slice(0, 50);
+  const agents = [];
+  for (const line of $("own-agents").value.split("\n").map((l) => l.trim()).filter(Boolean)) {
+    const [rawName, addr] = line.split(/[\s=,:]+/);
+    const nm = (rawName || "").replace(/\.ai$/i, "").toLowerCase();
+    if (!/^[a-z0-9]{3,15}$/.test(nm) || !ADDR.test(addr || "")) {
+      if (kind === "transfer") return fail('Trusted agents need a name (3 to 15 letters or numbers) and then an address, one per line. Check: "' + line.slice(0, 40) + '"');
+    } else agents.push({ name: nm, address: addr });
+  }
+  if (kind === "transfer" && agents.length) req.knownAgents = agents.slice(0, 50);
   if (kind === "approval") {
     if (!/^0x[0-9a-fA-F]{136,}$/.test(calldata)) return fail("Paste the transaction data (it starts with 0x and is long) for the approval you are about to sign.");
     req.calldata = calldata;

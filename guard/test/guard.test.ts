@@ -102,3 +102,19 @@ test("reports from Agent ID holders: one warns, two block, vouches never hide a 
   assert.equal(unreadable.verdict, "allow");
   assert.equal(unreadable.communitySignals, null);
 });
+test("saved agents: a lookalike of a trusted name blocks, a matching pair passes quietly, a wrong address blocks", async () => {
+  const SAM = "0x3333333333333333333333333333333333333333";
+  const saved = [{ name: "sam", address: SAM }, { name: "adaoracle", address: "0x4444444444444444444444444444444444444444" }];
+  const look = await check({ from: ME, to: OWNER, kind: "transfer", knownAddresses: [OWNER], agentName: "adaorac1e", knownAgents: saved }, ctx);
+  assert.ok(look.reasons.some((x) => x.code === "LOOKALIKE_NAME"));
+  assert.equal(look.verdict, "block");
+  const ok = await check({ from: ME, to: SAM, kind: "transfer", knownAddresses: [SAM], agentName: "Sam.ai", knownAgents: saved }, ctx);
+  assert.equal(ok.matchesSavedAgent, true);
+  assert.ok(!ok.reasons.some((x) => x.code === "NAME_UNRESOLVED"));
+  assert.equal(ok.verdict, "allow");
+  const wrong = await check({ from: ME, to: OWNER, kind: "transfer", knownAddresses: [OWNER], agentName: "sam", knownAgents: saved }, ctx);
+  assert.ok(wrong.reasons.some((x) => x.code === "NAME_DIFFERS_FROM_YOUR_CONTACT"));
+  assert.equal(wrong.verdict, "block");
+  const junk = await check({ from: ME, to: OWNER, kind: "transfer", knownAddresses: [OWNER], agentName: "payagent", knownAgents: [null, { name: 5 }, "x"] as any }, ctx);
+  assert.equal(junk.verdict, "allow");
+});
