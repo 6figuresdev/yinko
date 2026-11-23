@@ -43,7 +43,7 @@ createServer(async (req, res) => {
     }
     try {
       const r = JSON.parse(body) as CheckRequest;
-      if (!isAddress(r.from) || !isAddress(r.to)) throw new Error("from and to must be valid addresses");
+      if (!isAddress(r.from) || !isAddress(r.to)) throw new Error("from and to must be valid addresses (all lowercase, or mixed case with a correct checksum)");
       const out = await check(r, ctx);
       let attestationTx: string | null | undefined;
       if (r.attest) {

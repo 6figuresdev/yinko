@@ -20,10 +20,11 @@ You do not need it for read-only commands.
 1. Get the wallet address: `baw wallet address --json`.
 2. Run the check, using the addresses and name the user gave you:
    ```bash
-   ./yinko-check.sh --from WALLET --to RECIPIENT [--amount 25] [--agent name]
+   ./yinko-check.sh --from WALLET --to RECIPIENT [--amount 25] [--agent name] [--known PAYEE1,PAYEE2]
    ./yinko-check.sh --from WALLET --to SPENDER --approval-calldata 0x...   # approvals
    ```
    or `POST https://yinko.vercel.app/check` with `{ "from", "to", "kind": "transfer" | "approval", "amount", "agentName", "calldata" }`, or the `yinko_check` MCP tool from the same repository.
+   Pass `--known` with the addresses the user has paid before (their saved payees). Without it Yinko only sees a few hours of on-chain history, so a copycat of an older payee can slip through.
 3. Act on the answer:
    - **allow** (exit 0): continue with the normal `baw` preview. The user's confirmation still applies.
    - **warn** (exit 10): show the user every reason. Continue only if they agree, and not above `suggestedCap`.

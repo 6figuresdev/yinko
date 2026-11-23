@@ -144,10 +144,12 @@ ol.steps pre { margin-top: 0.4rem; }
                 <select id="own-kind"><option value="transfer">A payment</option><option value="approval">A token approval</option></select></label>
               <label>Paying to (or the spender, for an approval)
                 <input type="text" id="own-to" placeholder="0x... recipient" spellcheck="false" autocomplete="off"></label>
-              <label>Agent name, if you were told one (optional)
+              <label id="own-name-row">Agent name, if you were told one (optional)
                 <input type="text" id="own-name" placeholder="for example yinko" spellcheck="false" autocomplete="off"></label>
-              <label>Amount (optional)
+              <label id="own-amount-row">Amount (optional)
                 <input type="text" id="own-amount" placeholder="25" inputmode="decimal" autocomplete="off"></label>
+              <label id="own-known-row">Addresses you have paid before (optional, one per line)
+                <textarea id="own-known" placeholder="0x... your usual payees. This is how Yinko spots a copycat of an address you trust." spellcheck="false"></textarea></label>
               <label id="own-calldata-row" hidden>Transaction data for the approval
                 <textarea id="own-calldata" placeholder="0x095ea7b3..." spellcheck="false"></textarea></label>
               <button type="submit" class="go">Run the check</button>

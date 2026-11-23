@@ -106,7 +106,11 @@ async function run(i, btn) {
 
 /* ---- check your own payment: public addresses only, nothing is connected or signed ---- */
 const ADDR = /^0x[0-9a-fA-F]{40}$/;
-$("own-kind").addEventListener("change", () => { $("own-calldata-row").hidden = $("own-kind").value !== "approval"; });
+$("own-kind").addEventListener("change", () => {
+  const approval = $("own-kind").value === "approval";
+  $("own-calldata-row").hidden = !approval;
+  for (const id of ["own-name-row", "own-amount-row", "own-known-row"]) $(id).hidden = approval;
+});
 $("own-form").addEventListener("submit", (ev) => {
   ev.preventDefault();
   presetList.querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", "false"));
@@ -119,6 +123,10 @@ $("own-form").addEventListener("submit", (ev) => {
   const amount = $("own-amount").value.trim(), name = $("own-name").value.trim();
   if (amount && kind === "transfer") req.amount = amount;
   if (name && kind === "transfer") req.agentName = name.replace(/\.ai$/i, "").toLowerCase();
+  const known = $("own-known").value.split(/[\s,;]+/).map((x) => x.trim()).filter(Boolean);
+  const badKnown = known.find((x) => !ADDR.test(x));
+  if (kind === "transfer" && badKnown) return fail("One of the addresses you paid before is not a valid address: " + badKnown.slice(0, 14) + "...");
+  if (kind === "transfer" && known.length) req.knownAddresses = [...new Set(known)].slice(0, 50);
   if (kind === "approval") {
     if (!/^0x[0-9a-fA-F]{136,}$/.test(calldata)) return fail("Paste the transaction data (it starts with 0x and is long) for the approval you are about to sign.");
     req.calldata = calldata;
